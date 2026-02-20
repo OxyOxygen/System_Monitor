@@ -1,15 +1,31 @@
-# System Monitor
+# System Monitor v2.0
 
-A modern desktop application for real-time system resource monitoring.
+A modern desktop application for real-time system resource monitoring with a premium dark UI.
 
 ## Features
 
-- CPU usage percentage
-- RAM usage and total memory information
-- Disk space usage (C: drive)
-- GPU usage and VRAM tracking
-- Battery status and power management
-- Modern graphical user interface
+### Overview Tab
+- **CPU**: Total usage with live graph + per-core usage bars
+- **Memory**: RAM usage with live graph + usage breakdown
+- **Disk**: C: drive usage with progress bar
+- **GPU**: GPU utilization with live graph + VRAM tracking
+- **Power**: Battery status, AC/Battery mode, remaining time
+
+### Processes Tab
+- Top 15 processes sorted by memory usage
+- PID, process name, memory size, and visual memory bar
+- Scrollable table with resizable columns
+
+### Network Tab
+- Real-time download/upload speed graphs
+- Speed display in B/s, KB/s, or MB/s
+- Total traffic statistics
+- Active network adapter info
+
+### Sidebar
+- Circular gauge widgets for CPU, Memory, Disk, GPU, and Battery
+- Smooth animated value transitions
+- Color-coded status (green/yellow/red)
 
 ## Requirements
 
@@ -61,42 +77,44 @@ cmake --build build --config Release
 
 ## Usage
 
-When the program starts, it displays five information panels:
+The application opens with three navigation tabs:
 
-- **CPU**: Real-time processor usage percentage
-- **Memory**: Used and total RAM information
-- **Disk**: C drive usage status
-- **GPU**: Graphics card usage (if compatible)
-- **Power**: Battery status, AC/Battery mode, remaining time
+- **Overview**: Live graphs for CPU, Memory, GPU. Per-core CPU bars. Disk and Power status panels.
+- **Processes**: Table of top 15 memory-consuming processes with visual bars.
+- **Network**: Download/Upload speed graphs with traffic statistics.
 
-Information is automatically updated every second. Close the window to exit the program.
+A sidebar on the left shows circular gauge widgets for quick system health overview. All data updates every second with smooth animations.
 
 ## Technical Details
 
 ### Technologies Used
 - C++17 standard
-- ImGui (Dear ImGui) - GUI framework
+- ImGui (Dear ImGui) - GUI framework with custom drawn widgets
 - GLFW - Window management
 - OpenGL 3.0 - Graphics rendering
 - Windows PDH API - CPU and GPU monitoring
-- Windows API - Memory, disk, and power management
+- Windows API - Memory, disk, power, process, and network monitoring
+- PSAPI - Process memory information
+- IP Helper API - Network traffic statistics
 
 ### Project Structure
 ```
 System Monitor/
-├── src/                    # Source code files
-│   ├── main.cpp           # Main program
-│   ├── cpu_monitor.cpp    # CPU monitoring
-│   ├── memory_monitor.cpp # Memory monitoring
-│   ├── disk_monitor.cpp   # Disk monitoring
-│   ├── gpu_monitor.cpp    # GPU monitoring
-│   ├── power_monitor.cpp  # Power monitoring
-│   └── gui.cpp            # Graphical interface
-├── include/               # Header files
-├── external/              # External libraries
-│   ├── imgui/            # ImGui library
-│   └── glfw/             # GLFW library
-└── CMakeLists.txt        # CMake configuration
+├── src/                       # Source code files
+│   ├── main.cpp              # Main program
+│   ├── cpu_monitor.cpp       # CPU monitoring (total + per-core)
+│   ├── memory_monitor.cpp    # Memory monitoring
+│   ├── disk_monitor.cpp      # Disk monitoring
+│   ├── gpu_monitor.cpp       # GPU monitoring
+│   ├── power_monitor.cpp     # Power monitoring
+│   ├── process_monitor.cpp   # Process enumeration
+│   ├── network_monitor.cpp   # Network traffic monitoring
+│   └── gui.cpp               # Graphical interface
+├── include/                   # Header files
+├── external/                  # External libraries
+│   ├── imgui/                # ImGui library
+│   └── glfw/                 # GLFW library
+└── CMakeLists.txt            # CMake configuration
 ```
 
 ## Troubleshooting

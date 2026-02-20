@@ -4,9 +4,18 @@
 #include "disk_monitor.h"
 #include "gpu_monitor.h"
 #include "memory_monitor.h"
+#include "network_monitor.h"
 #include "power_monitor.h"
+#include "process_monitor.h"
+#include "system_info.h"
+
+#include "imgui.h"
+#include <string>
+#include <vector>
 
 struct GLFWwindow;
+
+enum class Tab { Overview = 0, Processes, Network, System };
 
 class GUI {
 public:
@@ -16,20 +25,60 @@ public:
   bool init(const char *title, int width, int height);
   bool shouldClose();
   void beginFrame();
-  void render(double cpuUsage, const MemoryInfo &memInfo,
-              const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
-              const PowerInfo &powerInfo);
+  void render(double cpuUsage, const std::vector<double> &coreUsages,
+              const MemoryInfo &memInfo, const DiskInfo &diskInfo,
+              const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
+              const std::vector<ProcessInfo> &processes,
+              const NetworkInfo &netInfo, const SystemInfo &sysInfo);
   void endFrame();
   void cleanup();
 
 private:
   GLFWwindow *window;
   bool initialized;
+  Tab currentTab;
 
-  void renderCpuWidget(double cpuUsage);
-  void renderMemoryWidget(const MemoryInfo &info);
-  void renderDiskWidget(const DiskInfo &info);
-  void renderGpuWidget(const GpuInfo &info);
-  void renderPowerWidget(const PowerInfo &info);
+  // History buffers for graphs (last 60 samples)
+  static constexpr int HISTORY_SIZE = 60;
+  float cpuHistory[HISTORY_SIZE];
+  float memHistory[HISTORY_SIZE];
+  float gpuHistory[HISTORY_SIZE];
+  float downloadHistory[HISTORY_SIZE];
+  float uploadHistory[HISTORY_SIZE];
+  int historyOffset;
+
+  // Smooth animation values
+  float animCpu;
+  float animMem;
+  float animDisk;
+  float animGpu;
+  float animBattery;
+
+  // Render helpers
   void setupStyle();
+  void renderSidebar(double cpuUsage, const MemoryInfo &memInfo,
+                     const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
+                     const PowerInfo &powerInfo);
+  void renderOverviewTab(double cpuUsage, const std::vector<double> &coreUsages,
+                         const MemoryInfo &memInfo, const DiskInfo &diskInfo,
+                         const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
+                         const NetworkInfo &netInfo);
+  void renderProcessesTab(const std::vector<ProcessInfo> &processes);
+  void renderNetworkTab(const NetworkInfo &netInfo);
+  void renderSystemTab(const SystemInfo &sysInfo);
+
+  // Custom widgets
+  void renderCircularGauge(const char *label, float fraction, ImVec4 color,
+                           float radius);
+  void renderGraph(const char *label, const float *data, int dataSize,
+                   int offset, float maxVal, ImVec4 color, ImVec2 size);
+  void renderMiniBar(const char *label, float fraction, ImVec4 color);
+  void renderInfoRow(const char *label, const char *value, ImVec4 valueColor);
+
+  // Utilities
+  void updateHistory(float cpuVal, float memVal, float gpuVal, float dlVal,
+                     float ulVal);
+  static std::string formatBytes(uint64_t bytes);
+  static std::string formatSpeed(double bytesPerSec);
+  static std::string formatUptime(uint64_t seconds);
 };

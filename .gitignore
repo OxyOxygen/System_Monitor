@@ -26,3 +26,7 @@ cmake-build-*/
 # OS
 .DS_Store
 Thumbs.db
+
+# Cache
+.cache/
+build_clangd/

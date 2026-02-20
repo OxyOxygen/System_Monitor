@@ -1,79 +1,147 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include "gui.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
-GUI::GUI() : window(nullptr), initialized(false) {}
+// ─── Color palette ───────────────────────────────────────────────────────────
+static const ImVec4 COL_BG = ImVec4(0.06f, 0.06f, 0.09f, 1.00f);
+static const ImVec4 COL_SIDEBAR = ImVec4(0.08f, 0.08f, 0.12f, 1.00f);
+static const ImVec4 COL_PANEL = ImVec4(0.10f, 0.10f, 0.15f, 1.00f);
+static const ImVec4 COL_PANEL_HOVER = ImVec4(0.13f, 0.13f, 0.19f, 1.00f);
+static const ImVec4 COL_ACCENT = ImVec4(0.35f, 0.55f, 1.00f, 1.00f);
+static const ImVec4 COL_CYAN = ImVec4(0.00f, 0.85f, 0.85f, 1.00f);
+static const ImVec4 COL_GREEN = ImVec4(0.20f, 0.90f, 0.40f, 1.00f);
+static const ImVec4 COL_PURPLE = ImVec4(0.70f, 0.40f, 1.00f, 1.00f);
+static const ImVec4 COL_ORANGE = ImVec4(1.00f, 0.60f, 0.20f, 1.00f);
+static const ImVec4 COL_RED = ImVec4(1.00f, 0.30f, 0.35f, 1.00f);
+static const ImVec4 COL_YELLOW = ImVec4(1.00f, 0.85f, 0.25f, 1.00f);
+static const ImVec4 COL_TEXT = ImVec4(0.92f, 0.93f, 0.96f, 1.00f);
+static const ImVec4 COL_TEXT_DIM = ImVec4(0.55f, 0.56f, 0.62f, 1.00f);
+static const ImVec4 COL_BORDER = ImVec4(0.18f, 0.18f, 0.25f, 1.00f);
+
+// ─── Constructor / Destructor ────────────────────────────────────────────────
+GUI::GUI()
+    : window(nullptr), initialized(false), currentTab(Tab::Overview),
+      historyOffset(0), animCpu(0), animMem(0), animDisk(0), animGpu(0),
+      animBattery(0) {
+  memset(cpuHistory, 0, sizeof(cpuHistory));
+  memset(memHistory, 0, sizeof(memHistory));
+  memset(gpuHistory, 0, sizeof(gpuHistory));
+  memset(downloadHistory, 0, sizeof(downloadHistory));
+  memset(uploadHistory, 0, sizeof(uploadHistory));
+}
 
 GUI::~GUI() { cleanup(); }
 
 bool GUI::init(const char *title, int width, int height) {
-  // Setup window
   glfwSetErrorCallback(glfw_error_callback);
   if (!glfwInit())
     return false;
 
-  // GL 3.0 + GLSL 130
   const char *glsl_version = "#version 130";
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-  // Create window with graphics context
   window = glfwCreateWindow(width, height, title, nullptr, nullptr);
   if (window == nullptr)
     return false;
 
   glfwMakeContextCurrent(window);
-  glfwSwapInterval(1); // Enable vsync
+  glfwSwapInterval(1);
 
-  // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-  // Setup Platform/Renderer backends
+  // Scale up font for readability
+  io.Fonts->Clear();
+  io.Fonts->AddFontDefault();
+  io.FontGlobalScale = 1.35f;
+
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init(glsl_version);
 
-  // Setup style
   setupStyle();
 
   initialized = true;
   return true;
 }
 
+// ─── Style ───────────────────────────────────────────────────────────────────
 void GUI::setupStyle() {
   ImGuiStyle &style = ImGui::GetStyle();
   ImVec4 *colors = style.Colors;
 
-  // Dark theme with modern colors
-  colors[ImGuiCol_WindowBg] = ImVec4(0.10f, 0.10f, 0.13f, 1.00f);
-  colors[ImGuiCol_FrameBg] = ImVec4(0.16f, 0.16f, 0.21f, 1.00f);
-  colors[ImGuiCol_FrameBgHovered] = ImVec4(0.20f, 0.20f, 0.27f, 1.00f);
-  colors[ImGuiCol_FrameBgActive] = ImVec4(0.24f, 0.24f, 0.32f, 1.00f);
-  colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.08f, 0.11f, 1.00f);
-  colors[ImGuiCol_TitleBgActive] = ImVec4(0.12f, 0.12f, 0.17f, 1.00f);
-  colors[ImGuiCol_Button] = ImVec4(0.20f, 0.25f, 0.35f, 1.00f);
-  colors[ImGuiCol_ButtonHovered] = ImVec4(0.26f, 0.33f, 0.46f, 1.00f);
-  colors[ImGuiCol_ButtonActive] = ImVec4(0.18f, 0.23f, 0.32f, 1.00f);
-  colors[ImGuiCol_Header] = ImVec4(0.20f, 0.25f, 0.35f, 1.00f);
-  colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.33f, 0.46f, 1.00f);
-  colors[ImGuiCol_HeaderActive] = ImVec4(0.16f, 0.20f, 0.28f, 1.00f);
+  colors[ImGuiCol_WindowBg] = COL_BG;
+  colors[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+  colors[ImGuiCol_PopupBg] = COL_PANEL;
+  colors[ImGuiCol_Border] = COL_BORDER;
+  colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.12f, 0.18f, 1.00f);
+  colors[ImGuiCol_FrameBgHovered] = ImVec4(0.16f, 0.16f, 0.24f, 1.00f);
+  colors[ImGuiCol_FrameBgActive] = ImVec4(0.20f, 0.20f, 0.30f, 1.00f);
+  colors[ImGuiCol_TitleBg] = COL_SIDEBAR;
+  colors[ImGuiCol_TitleBgActive] = COL_SIDEBAR;
+  colors[ImGuiCol_ScrollbarBg] = ImVec4(0.08f, 0.08f, 0.12f, 0.50f);
+  colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.25f, 0.25f, 0.35f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.30f, 0.30f, 0.42f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabActive] = COL_ACCENT;
 
-  // Rounded corners
-  style.WindowRounding = 8.0f;
-  style.FrameRounding = 4.0f;
-  style.GrabRounding = 4.0f;
-  style.ScrollbarRounding = 4.0f;
+  colors[ImGuiCol_Button] = ImVec4(0.14f, 0.14f, 0.22f, 1.00f);
+  colors[ImGuiCol_ButtonHovered] = ImVec4(0.25f, 0.35f, 0.65f, 1.00f);
+  colors[ImGuiCol_ButtonActive] = ImVec4(0.20f, 0.30f, 0.55f, 1.00f);
+  colors[ImGuiCol_Header] = ImVec4(0.14f, 0.14f, 0.22f, 1.00f);
+  colors[ImGuiCol_HeaderHovered] = ImVec4(0.20f, 0.28f, 0.50f, 1.00f);
+  colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.25f, 0.45f, 1.00f);
+  colors[ImGuiCol_Tab] = ImVec4(0.10f, 0.10f, 0.16f, 1.00f);
+  colors[ImGuiCol_TabHovered] = ImVec4(0.25f, 0.35f, 0.65f, 1.00f);
+  colors[ImGuiCol_TabActive] = ImVec4(0.20f, 0.30f, 0.60f, 1.00f);
+  colors[ImGuiCol_TabUnfocused] = ImVec4(0.10f, 0.10f, 0.16f, 1.00f);
+  colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.15f, 0.20f, 0.35f, 1.00f);
+
+  colors[ImGuiCol_TableHeaderBg] = ImVec4(0.12f, 0.12f, 0.18f, 1.00f);
+  colors[ImGuiCol_TableBorderStrong] = COL_BORDER;
+  colors[ImGuiCol_TableBorderLight] = ImVec4(0.14f, 0.14f, 0.20f, 1.00f);
+  colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+  colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.10f, 0.10f, 0.14f, 0.40f);
+
+  colors[ImGuiCol_PlotLines] = COL_ACCENT;
+  colors[ImGuiCol_PlotHistogram] = COL_ACCENT;
+
+  colors[ImGuiCol_Separator] = COL_BORDER;
+  colors[ImGuiCol_Text] = COL_TEXT;
+  colors[ImGuiCol_TextDisabled] = COL_TEXT_DIM;
+
+  style.WindowRounding = 0.0f;
+  style.ChildRounding = 12.0f;
+  style.FrameRounding = 8.0f;
+  style.GrabRounding = 8.0f;
+  style.ScrollbarRounding = 10.0f;
+  style.TabRounding = 8.0f;
+  style.WindowPadding = ImVec2(16, 16);
+  style.FramePadding = ImVec2(14, 8);
+  style.ItemSpacing = ImVec2(12, 10);
+  style.ItemInnerSpacing = ImVec2(10, 8);
+  style.ScrollbarSize = 16.0f;
+  style.WindowBorderSize = 0.0f;
+  style.ChildBorderSize = 1.0f;
 }
 
 bool GUI::shouldClose() { return glfwWindowShouldClose(window); }
@@ -85,254 +153,891 @@ void GUI::beginFrame() {
   ImGui::NewFrame();
 }
 
-void GUI::render(double cpuUsage, const MemoryInfo &memInfo,
-                 const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
-                 const PowerInfo &powerInfo) {
-  // Main window
+// ─── Main Render ─────────────────────────────────────────────────────────────
+void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
+                 const MemoryInfo &memInfo, const DiskInfo &diskInfo,
+                 const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
+                 const std::vector<ProcessInfo> &processes,
+                 const NetworkInfo &netInfo, const SystemInfo &sysInfo) {
+  // Update history
+  float memPercent = static_cast<float>(memInfo.usagePercent);
+  float gpuPercent =
+      gpuInfo.available ? static_cast<float>(gpuInfo.gpuUsage) : 0.0f;
+  updateHistory(static_cast<float>(cpuUsage), memPercent, gpuPercent,
+                static_cast<float>(netInfo.downloadSpeed),
+                static_cast<float>(netInfo.uploadSpeed));
+
+  // Smooth animations (lerp)
+  float dt = ImGui::GetIO().DeltaTime;
+  float lerpSpeed = 8.0f * dt;
+  animCpu += (static_cast<float>(cpuUsage) / 100.0f - animCpu) * lerpSpeed;
+  animMem += (memPercent / 100.0f - animMem) * lerpSpeed;
+  animDisk += (static_cast<float>(diskInfo.usagePercent) / 100.0f - animDisk) *
+              lerpSpeed;
+  animGpu += (gpuPercent / 100.0f - animGpu) * lerpSpeed;
+  if (powerInfo.hasBattery && powerInfo.batteryPercent >= 0) {
+    animBattery +=
+        (static_cast<float>(powerInfo.batteryPercent) / 100.0f - animBattery) *
+        lerpSpeed;
+  }
+
+  // Full-window root
   ImGui::SetNextWindowPos(ImVec2(0, 0));
   ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-
-  ImGui::Begin("System Monitor", nullptr,
+  ImGui::Begin("##Root", nullptr,
                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse |
+                   ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-  // Title
-  ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-  ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "SYSTEM MONITOR");
-  ImGui::PopFont();
+  float sidebarWidth = 280.0f;
+  float totalHeight = ImGui::GetContentRegionAvail().y;
+  float totalWidth = ImGui::GetContentRegionAvail().x;
+
+  // ── Sidebar ──
+  ImGui::BeginChild("##Sidebar", ImVec2(sidebarWidth, totalHeight), false);
+  renderSidebar(cpuUsage, memInfo, diskInfo, gpuInfo, powerInfo);
+  ImGui::EndChild();
+
+  ImGui::SameLine();
+
+  // ── Main content ──
+  ImGui::BeginChild("##MainContent",
+                    ImVec2(totalWidth - sidebarWidth - 12, totalHeight), false);
+
+  // Tab bar — 4 tabs now
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
+  float tabWidth = 160.0f;
+
+  auto drawTab = [&](const char *label, Tab tab) {
+    bool active = (currentTab == tab);
+    ImVec4 bg = active ? ImVec4(0.20f, 0.30f, 0.60f, 1.00f)
+                       : ImVec4(0.10f, 0.10f, 0.16f, 1.00f);
+    ImVec4 bgHover = active ? bg : ImVec4(0.15f, 0.20f, 0.35f, 1.00f);
+    ImGui::PushStyleColor(ImGuiCol_Button, bg);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bgHover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg);
+    if (ImGui::Button(label, ImVec2(tabWidth, 44))) {
+      currentTab = tab;
+    }
+    ImGui::PopStyleColor(3);
+    ImGui::SameLine();
+  };
+
+  drawTab("  Overview  ", Tab::Overview);
+  drawTab(" Processes  ", Tab::Processes);
+  drawTab("  Network   ", Tab::Network);
+  drawTab("  System    ", Tab::System);
+
+  ImGui::PopStyleVar();
+  ImGui::NewLine();
+  ImGui::Spacing();
+
+  // Active indicator line
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+  float indicatorX =
+      cursorPos.x + (tabWidth + 2) * static_cast<int>(currentTab);
+  dl->AddRectFilled(ImVec2(indicatorX, cursorPos.y - 6),
+                    ImVec2(indicatorX + tabWidth, cursorPos.y - 1),
+                    ImColor(COL_ACCENT));
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  // Tab content
+  ImGui::BeginChild("##TabContent", ImVec2(0, 0), false);
+  switch (currentTab) {
+  case Tab::Overview:
+    renderOverviewTab(cpuUsage, coreUsages, memInfo, diskInfo, gpuInfo,
+                      powerInfo, netInfo);
+    break;
+  case Tab::Processes:
+    renderProcessesTab(processes);
+    break;
+  case Tab::Network:
+    renderNetworkTab(netInfo);
+    break;
+  case Tab::System:
+    renderSystemTab(sysInfo);
+    break;
+  }
+  ImGui::EndChild();
+
+  ImGui::EndChild(); // MainContent
+  ImGui::End();      // Root
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+void GUI::renderSidebar(double cpuUsage, const MemoryInfo &memInfo,
+                        const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
+                        const PowerInfo &powerInfo) {
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImVec2 size = ImGui::GetContentRegionAvail();
+
+  dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                    ImColor(COL_SIDEBAR));
+
+  for (int i = 0; i < 4; i++) {
+    float alpha = 0.20f - i * 0.05f;
+    dl->AddLine(ImVec2(pos.x + size.x - i, pos.y),
+                ImVec2(pos.x + size.x - i, pos.y + size.y),
+                ImColor(COL_ACCENT.x, COL_ACCENT.y, COL_ACCENT.z, alpha));
+  }
+
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  ImGui::PushStyleColor(ImGuiCol_Text, COL_ACCENT);
+  ImGui::SetCursorPosX(24);
+  ImGui::Text("SYSTEM");
+  ImGui::SetCursorPosX(24);
+  ImGui::Text("MONITOR");
+  ImGui::PopStyleColor();
+
+  ImGui::Spacing();
+  ImGui::Spacing();
   ImGui::Separator();
   ImGui::Spacing();
-
-  // Render widgets in a 3x2 grid
-  float windowWidth = ImGui::GetContentRegionAvail().x;
-  float widgetWidth = (windowWidth - 30) / 3; // 3 columns
-
-  // First row: CPU, Memory, Disk
-  ImGui::BeginChild("CPU", ImVec2(widgetWidth, 200), true);
-  renderCpuWidget(cpuUsage);
-  ImGui::EndChild();
-
-  ImGui::SameLine();
-
-  ImGui::BeginChild("Memory", ImVec2(widgetWidth, 200), true);
-  renderMemoryWidget(memInfo);
-  ImGui::EndChild();
-
-  ImGui::SameLine();
-
-  ImGui::BeginChild("Disk", ImVec2(widgetWidth, 200), true);
-  renderDiskWidget(diskInfo);
-  ImGui::EndChild();
-
+  ImGui::Spacing();
   ImGui::Spacing();
 
-  // Second row: GPU and Power
-  ImGui::BeginChild("GPU", ImVec2(widgetWidth, 200), true);
-  renderGpuWidget(gpuInfo);
-  ImGui::EndChild();
+  float gaugeRadius = 48.0f;
+  float centerX = size.x / 2.0f;
 
-  ImGui::SameLine();
-
-  ImGui::BeginChild("Power", ImVec2(widgetWidth, 200), true);
-  renderPowerWidget(powerInfo);
-  ImGui::EndChild();
-
-  ImGui::End();
-}
-
-void GUI::renderCpuWidget(double cpuUsage) {
-  ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.4f, 1.0f), "CPU USAGE");
+  ImGui::SetCursorPosX(centerX - gaugeRadius);
+  renderCircularGauge("CPU", animCpu, COL_GREEN, gaugeRadius);
+  ImGui::Spacing();
   ImGui::Spacing();
 
-  // Large percentage display
-  ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(1) << cpuUsage << "%%";
-  ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", oss.str().c_str());
-  ImGui::PopFont();
-
+  ImGui::SetCursorPosX(centerX - gaugeRadius);
+  renderCircularGauge("MEM", animMem, COL_CYAN, gaugeRadius);
+  ImGui::Spacing();
   ImGui::Spacing();
 
-  // Progress bar
-  float fraction = static_cast<float>(cpuUsage) / 100.0f;
-  ImVec4 barColor = fraction > 0.8f   ? ImVec4(0.9f, 0.2f, 0.2f, 1.0f)
-                    : fraction > 0.5f ? ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-                                      : ImVec4(0.2f, 0.9f, 0.2f, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-  ImGui::ProgressBar(fraction, ImVec2(-1, 30));
-  ImGui::PopStyleColor();
-}
-
-void GUI::renderMemoryWidget(const MemoryInfo &info) {
-  ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "MEMORY USAGE");
+  ImGui::SetCursorPosX(centerX - gaugeRadius);
+  renderCircularGauge("DISK", animDisk, COL_PURPLE, gaugeRadius);
+  ImGui::Spacing();
   ImGui::Spacing();
 
-  // Convert bytes to GB
-  double totalGB =
-      static_cast<double>(info.totalRAM) / (1024.0 * 1024.0 * 1024.0);
-  double usedGB =
-      static_cast<double>(info.usedRAM) / (1024.0 * 1024.0 * 1024.0);
-
-  // Display
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(1) << usedGB << " / " << totalGB
-      << " GB";
-  ImGui::Text("%s", oss.str().c_str());
-
-  oss.str("");
-  oss << std::fixed << std::setprecision(1) << info.usagePercent << "%%";
-  ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", oss.str().c_str());
-
-  ImGui::Spacing();
-
-  // Progress bar
-  float fraction = static_cast<float>(info.usagePercent) / 100.0f;
-  ImVec4 barColor = fraction > 0.8f   ? ImVec4(0.9f, 0.2f, 0.2f, 1.0f)
-                    : fraction > 0.5f ? ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-                                      : ImVec4(0.4f, 0.7f, 1.0f, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-  ImGui::ProgressBar(fraction, ImVec2(-1, 30));
-  ImGui::PopStyleColor();
-}
-
-void GUI::renderDiskWidget(const DiskInfo &info) {
-  ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.9f, 1.0f), "DISK USAGE (C:)");
-  ImGui::Spacing();
-
-  // Convert bytes to GB
-  double totalGB =
-      static_cast<double>(info.totalSpace) / (1024.0 * 1024.0 * 1024.0);
-  double usedGB =
-      static_cast<double>(info.usedSpace) / (1024.0 * 1024.0 * 1024.0);
-  double freeGB =
-      static_cast<double>(info.freeSpace) / (1024.0 * 1024.0 * 1024.0);
-
-  // Display
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(1) << usedGB << " / " << totalGB
-      << " GB";
-  ImGui::Text("%s", oss.str().c_str());
-
-  oss.str("");
-  oss << std::fixed << std::setprecision(1) << freeGB << " GB free";
-  ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", oss.str().c_str());
-
-  ImGui::Spacing();
-
-  // Progress bar
-  float fraction = static_cast<float>(info.usagePercent) / 100.0f;
-  ImVec4 barColor = fraction > 0.9f   ? ImVec4(0.9f, 0.2f, 0.2f, 1.0f)
-                    : fraction > 0.7f ? ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-                                      : ImVec4(0.9f, 0.5f, 0.9f, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-  ImGui::ProgressBar(fraction, ImVec2(-1, 30));
-  ImGui::PopStyleColor();
-}
-
-void GUI::renderGpuWidget(const GpuInfo &info) {
-  ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.2f, 1.0f), "GPU USAGE");
-  ImGui::Spacing();
-
-  if (!info.available) {
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                       "GPU monitoring not available");
-    ImGui::Text("Requires compatible GPU/drivers");
-    return;
-  }
-
-  // GPU usage
-  std::ostringstream oss;
-  oss << std::fixed << std::setprecision(1) << info.gpuUsage << "%%";
-  ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", oss.str().c_str());
-
-  ImGui::Spacing();
-
-  // Progress bar
-  float fraction = static_cast<float>(info.gpuUsage) / 100.0f;
-  ImVec4 barColor = fraction > 0.8f   ? ImVec4(0.9f, 0.2f, 0.2f, 1.0f)
-                    : fraction > 0.5f ? ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-                                      : ImVec4(0.9f, 0.7f, 0.2f, 1.0f);
-  ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-  ImGui::ProgressBar(fraction, ImVec2(-1, 30));
-  ImGui::PopStyleColor();
-
-  // VRAM info (if available)
-  if (info.vramUsed > 0) {
-    double vramUsedGB =
-        static_cast<double>(info.vramUsed) / (1024.0 * 1024.0 * 1024.0);
-    oss.str("");
-    oss << "VRAM: " << std::fixed << std::setprecision(1) << vramUsedGB
-        << " GB";
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", oss.str().c_str());
-  }
-}
-
-void GUI::renderPowerWidget(const PowerInfo &info) {
-  ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.2f, 1.0f), "POWER STATUS");
-  ImGui::Spacing();
-
-  if (!info.hasBattery) {
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "No Battery Detected");
-    ImGui::Text("AC Power Only");
-    return;
-  }
-
-  std::ostringstream oss;
-
-  // Display AC/Battery mode with charging status
-  if (info.isCharging) {
-    ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.2f, 1.0f), "Charging");
-    if (info.batteryPercent >= 0) {
-      oss << info.batteryPercent << "%%";
-      ImGui::Text("%s", oss.str().c_str());
-    }
-  } else if (info.onBattery) {
-    ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.2f, 1.0f), "On Battery");
-    if (info.batteryPercent >= 0) {
-      oss << info.batteryPercent << "%%";
-      ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s",
-                         oss.str().c_str());
-    }
+  ImGui::SetCursorPosX(centerX - gaugeRadius);
+  if (gpuInfo.available) {
+    renderCircularGauge("GPU", animGpu, COL_ORANGE, gaugeRadius);
   } else {
-    ImGui::TextColored(ImVec4(0.2f, 0.9f, 0.2f, 1.0f), "AC Power");
-    if (info.batteryPercent >= 0) {
-      oss << info.batteryPercent << "%%";
-      ImGui::Text("%s", oss.str().c_str());
-    }
+    renderCircularGauge("GPU", 0.0f, COL_TEXT_DIM, gaugeRadius);
   }
-
+  ImGui::Spacing();
   ImGui::Spacing();
 
-  // Battery progress bar
-  if (info.batteryPercent >= 0) {
-    float fraction = static_cast<float>(info.batteryPercent) / 100.0f;
-    ImVec4 barColor = fraction < 0.2f   ? ImVec4(0.9f, 0.2f, 0.2f, 1.0f)
-                      : fraction < 0.5f ? ImVec4(0.9f, 0.7f, 0.2f, 1.0f)
-                                        : ImVec4(0.2f, 0.9f, 0.2f, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, barColor);
-    ImGui::ProgressBar(fraction, ImVec2(-1, 30));
-    ImGui::PopStyleColor();
-  }
-
-  // Estimated time remaining
-  if (info.onBattery && info.estimatedTime > 0) {
-    oss.str("");
-    int hours = info.estimatedTime / 60;
-    int minutes = info.estimatedTime % 60;
-    oss << "~" << hours << "h " << minutes << "m remaining";
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", oss.str().c_str());
+  ImGui::SetCursorPosX(centerX - gaugeRadius);
+  if (powerInfo.hasBattery && powerInfo.batteryPercent >= 0) {
+    ImVec4 batColor = animBattery < 0.2f   ? COL_RED
+                      : animBattery < 0.5f ? COL_YELLOW
+                                           : COL_GREEN;
+    renderCircularGauge("BAT", animBattery, batColor, gaugeRadius);
+  } else {
+    renderCircularGauge("AC", 1.0f, COL_GREEN, gaugeRadius);
   }
 }
 
+// ─── Overview Tab ────────────────────────────────────────────────────────────
+void GUI::renderOverviewTab(double cpuUsage,
+                            const std::vector<double> &coreUsages,
+                            const MemoryInfo &memInfo, const DiskInfo &diskInfo,
+                            const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
+                            const NetworkInfo &netInfo) {
+  float contentWidth = ImGui::GetContentRegionAvail().x;
+  float graphWidth = (contentWidth - 15) / 2.0f;
+
+  // CPU section
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##CpuSection", ImVec2(graphWidth, 270), true);
+  {
+    ImGui::TextColored(COL_GREEN, "CPU USAGE");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 80);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << cpuUsage << "%%";
+    ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+    ImGui::Spacing();
+    renderGraph("##cpuGraph", cpuHistory, HISTORY_SIZE, historyOffset, 100.0f,
+                COL_GREEN, ImVec2(-1, 120));
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    ImGui::TextColored(COL_TEXT_DIM, "Per Core:");
+    ImGui::Spacing();
+    int cols = std::min((int)coreUsages.size(), 16);
+    float barWidth = (ImGui::GetContentRegionAvail().x - (cols - 1) * 5) / cols;
+    if (barWidth < 16)
+      barWidth = 16;
+
+    for (int i = 0; i < (int)coreUsages.size() && i < 16; i++) {
+      if (i > 0)
+        ImGui::SameLine(0, 5);
+      float frac = static_cast<float>(coreUsages[i]) / 100.0f;
+      ImVec4 coreColor = frac > 0.8f   ? COL_RED
+                         : frac > 0.5f ? COL_YELLOW
+                                       : COL_GREEN;
+
+      ImDrawList *dl = ImGui::GetWindowDrawList();
+      ImVec2 p = ImGui::GetCursorScreenPos();
+      float barHeight = 42.0f;
+      float fillHeight = barHeight * frac;
+
+      dl->AddRectFilled(p, ImVec2(p.x + barWidth, p.y + barHeight),
+                        ImColor(0.15f, 0.15f, 0.22f, 1.0f), 4.0f);
+      dl->AddRectFilled(ImVec2(p.x, p.y + barHeight - fillHeight),
+                        ImVec2(p.x + barWidth, p.y + barHeight),
+                        ImColor(coreColor), 4.0f);
+
+      ImGui::Dummy(ImVec2(barWidth, barHeight));
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  // Memory section
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##MemSection", ImVec2(graphWidth, 270), true);
+  {
+    ImGui::TextColored(COL_CYAN, "MEMORY USAGE");
+    double usedGB =
+        static_cast<double>(memInfo.usedRAM) / (1024.0 * 1024.0 * 1024.0);
+    double totalGB =
+        static_cast<double>(memInfo.totalRAM) / (1024.0 * 1024.0 * 1024.0);
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 160);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << usedGB << " / " << totalGB
+        << " GB";
+    ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+    ImGui::Spacing();
+    renderGraph("##memGraph", memHistory, HISTORY_SIZE, historyOffset, 100.0f,
+                COL_CYAN, ImVec2(-1, 120));
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    float fraction = static_cast<float>(memInfo.usagePercent) / 100.0f;
+    ImVec4 barColor = fraction > 0.85f  ? COL_RED
+                      : fraction > 0.6f ? COL_YELLOW
+                                        : COL_CYAN;
+    renderMiniBar("Used", fraction, barColor);
+
+    ImGui::Spacing();
+    oss.str("");
+    oss << std::fixed << std::setprecision(1) << memInfo.usagePercent
+        << "%% used";
+    ImGui::TextColored(COL_TEXT_DIM, "%s", oss.str().c_str());
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  // Row 2: GPU, Disk, Power
+  float thirdWidth = (contentWidth - 30) / 3.0f;
+
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##GpuSection", ImVec2(thirdWidth, 220), true);
+  {
+    ImGui::TextColored(COL_ORANGE, "GPU");
+    ImGui::Spacing();
+    if (gpuInfo.available) {
+      renderGraph("##gpuGraph", gpuHistory, HISTORY_SIZE, historyOffset, 100.0f,
+                  COL_ORANGE, ImVec2(-1, 90));
+      ImGui::Spacing();
+      ImGui::Spacing();
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(1) << gpuInfo.gpuUsage << "%%";
+      ImGui::TextColored(COL_TEXT, "Usage: %s", oss.str().c_str());
+      if (gpuInfo.vramUsed > 0) {
+        double vramGB =
+            static_cast<double>(gpuInfo.vramUsed) / (1024.0 * 1024.0 * 1024.0);
+        oss.str("");
+        oss << std::fixed << std::setprecision(2) << vramGB << " GB";
+        ImGui::TextColored(COL_TEXT_DIM, "VRAM: %s", oss.str().c_str());
+      }
+    } else {
+      ImGui::Spacing();
+      ImGui::Spacing();
+      ImGui::TextColored(COL_TEXT_DIM, "GPU monitoring");
+      ImGui::TextColored(COL_TEXT_DIM, "not available");
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##DiskSection", ImVec2(thirdWidth, 220), true);
+  {
+    ImGui::TextColored(COL_PURPLE, "DISK (C:)");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    double totalGB =
+        static_cast<double>(diskInfo.totalSpace) / (1024.0 * 1024.0 * 1024.0);
+    double usedGB =
+        static_cast<double>(diskInfo.usedSpace) / (1024.0 * 1024.0 * 1024.0);
+    double freeGB =
+        static_cast<double>(diskInfo.freeSpace) / (1024.0 * 1024.0 * 1024.0);
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << usedGB << " / " << totalGB
+        << " GB";
+    ImGui::Text("%s", oss.str().c_str());
+
+    float fraction = static_cast<float>(diskInfo.usagePercent) / 100.0f;
+    ImVec4 diskColor = fraction > 0.9f   ? COL_RED
+                       : fraction > 0.7f ? COL_YELLOW
+                                         : COL_PURPLE;
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+    renderMiniBar("##diskBar", fraction, diskColor);
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+    oss.str("");
+    oss << std::fixed << std::setprecision(1) << freeGB << " GB free";
+    ImGui::TextColored(COL_TEXT_DIM, "%s", oss.str().c_str());
+
+    oss.str("");
+    oss << std::fixed << std::setprecision(1) << diskInfo.usagePercent << "%%";
+    ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##PowerSection", ImVec2(thirdWidth, 220), true);
+  {
+    ImGui::TextColored(COL_YELLOW, "POWER");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    if (!powerInfo.hasBattery) {
+      ImGui::TextColored(COL_GREEN, "AC Power");
+      ImGui::Spacing();
+      ImGui::TextColored(COL_TEXT_DIM, "No battery detected");
+    } else {
+      if (powerInfo.isCharging) {
+        ImGui::TextColored(COL_GREEN, "Charging");
+      } else if (powerInfo.onBattery) {
+        ImGui::TextColored(COL_ORANGE, "On Battery");
+      } else {
+        ImGui::TextColored(COL_GREEN, "AC Power");
+      }
+
+      if (powerInfo.batteryPercent >= 0) {
+        ImGui::Spacing();
+        std::ostringstream oss;
+        oss << powerInfo.batteryPercent << "%%";
+        ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+
+        float fraction = static_cast<float>(powerInfo.batteryPercent) / 100.0f;
+        ImVec4 batColor = fraction < 0.2f   ? COL_RED
+                          : fraction < 0.5f ? COL_YELLOW
+                                            : COL_GREEN;
+        ImGui::Spacing();
+        ImGui::Spacing();
+        renderMiniBar("##batBar", fraction, batColor);
+      }
+
+      if (powerInfo.onBattery && powerInfo.estimatedTime > 0) {
+        ImGui::Spacing();
+        int h = powerInfo.estimatedTime / 60;
+        int m = powerInfo.estimatedTime % 60;
+        std::ostringstream oss;
+        oss << "~" << h << "h " << m << "m remaining";
+        ImGui::TextColored(COL_TEXT_DIM, "%s", oss.str().c_str());
+      }
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+}
+
+// ─── Processes Tab ───────────────────────────────────────────────────────────
+void GUI::renderProcessesTab(const std::vector<ProcessInfo> &processes) {
+  ImGui::TextColored(COL_ACCENT, "TOP PROCESSES (by Memory)");
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                          ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY;
+
+  if (ImGui::BeginTable("##ProcessTable", 4, flags,
+                        ImVec2(0, ImGui::GetContentRegionAvail().y - 10))) {
+    ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+    ImGui::TableSetupColumn("Process Name", ImGuiTableColumnFlags_WidthStretch);
+    ImGui::TableSetupColumn("Memory", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+    ImGui::TableSetupColumn("Memory Bar", ImGuiTableColumnFlags_WidthFixed,
+                            250.0f);
+    ImGui::TableSetupScrollFreeze(0, 1);
+    ImGui::TableHeadersRow();
+
+    uint64_t maxMem = 1;
+    for (auto &p : processes) {
+      if (p.memoryUsed > maxMem)
+        maxMem = p.memoryUsed;
+    }
+
+    for (int i = 0; i < (int)processes.size(); i++) {
+      auto &proc = processes[i];
+      ImGui::TableNextRow(ImGuiTableRowFlags_None, 32.0f);
+
+      ImGui::TableSetColumnIndex(0);
+      ImGui::TextColored(COL_TEXT_DIM, "%lu", proc.pid);
+
+      ImGui::TableSetColumnIndex(1);
+      ImGui::TextColored(COL_TEXT, "%s", proc.name.c_str());
+
+      ImGui::TableSetColumnIndex(2);
+      ImGui::Text("%s", formatBytes(proc.memoryUsed).c_str());
+
+      ImGui::TableSetColumnIndex(3);
+      float frac = static_cast<float>((double)proc.memoryUsed / (double)maxMem);
+      ImVec4 barColor = i < 3 ? COL_RED : i < 7 ? COL_ORANGE : COL_ACCENT;
+
+      ImDrawList *dl = ImGui::GetWindowDrawList();
+      ImVec2 p = ImGui::GetCursorScreenPos();
+      float barW = ImGui::GetContentRegionAvail().x;
+      float barH = 20.0f;
+      dl->AddRectFilled(p, ImVec2(p.x + barW, p.y + barH),
+                        ImColor(0.15f, 0.15f, 0.22f, 1.0f), 4.0f);
+      dl->AddRectFilled(p, ImVec2(p.x + barW * frac, p.y + barH),
+                        ImColor(barColor), 4.0f);
+      ImGui::Dummy(ImVec2(barW, barH));
+    }
+    ImGui::EndTable();
+  }
+}
+
+// ─── Network Tab (ENHANCED) ─────────────────────────────────────────────────
+void GUI::renderNetworkTab(const NetworkInfo &netInfo) {
+  ImGui::TextColored(COL_ACCENT, "NETWORK ACTIVITY");
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  if (!netInfo.available) {
+    ImGui::TextColored(COL_TEXT_DIM, "Network monitoring not available");
+    return;
+  }
+
+  float contentWidth = ImGui::GetContentRegionAvail().x;
+  float halfWidth = (contentWidth - 15) / 2.0f;
+
+  // ── Row 1: Download & Upload graphs ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##DownloadSection", ImVec2(halfWidth, 230), true);
+  {
+    ImGui::TextColored(COL_GREEN, "DOWNLOAD");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 130);
+    ImGui::TextColored(COL_TEXT, "%s",
+                       formatSpeed(netInfo.downloadSpeed).c_str());
+    ImGui::Spacing();
+
+    float maxDl = 1.0f;
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+      if (downloadHistory[i] > maxDl)
+        maxDl = downloadHistory[i];
+    }
+    renderGraph("##dlGraph", downloadHistory, HISTORY_SIZE, historyOffset,
+                maxDl * 1.2f, COL_GREEN, ImVec2(-1, 140));
+
+    ImGui::Spacing();
+    ImGui::TextColored(COL_TEXT_DIM, "Peak: %s",
+                       formatSpeed(netInfo.peakDownloadSpeed).c_str());
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##UploadSection", ImVec2(halfWidth, 230), true);
+  {
+    ImGui::TextColored(COL_ORANGE, "UPLOAD");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 130);
+    ImGui::TextColored(COL_TEXT, "%s",
+                       formatSpeed(netInfo.uploadSpeed).c_str());
+    ImGui::Spacing();
+
+    float maxUl = 1.0f;
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+      if (uploadHistory[i] > maxUl)
+        maxUl = uploadHistory[i];
+    }
+    renderGraph("##ulGraph", uploadHistory, HISTORY_SIZE, historyOffset,
+                maxUl * 1.2f, COL_ORANGE, ImVec2(-1, 140));
+
+    ImGui::Spacing();
+    ImGui::TextColored(COL_TEXT_DIM, "Peak: %s",
+                       formatSpeed(netInfo.peakUploadSpeed).c_str());
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  // ── Row 2: Connection Details & Stats side by side ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##NetDetails", ImVec2(halfWidth, 250), true);
+  {
+    ImGui::TextColored(COL_ACCENT, "CONNECTION DETAILS");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    renderInfoRow("Adapter", netInfo.adapterName.c_str(), COL_TEXT);
+    renderInfoRow("Type", netInfo.connectionType.c_str(), COL_CYAN);
+    renderInfoRow("IP Address", netInfo.ipAddress.c_str(), COL_GREEN);
+    renderInfoRow("MAC Address", netInfo.macAddress.c_str(), COL_TEXT);
+
+    // Link speed
+    std::ostringstream oss;
+    if (netInfo.linkSpeedMbps > 0) {
+      oss << netInfo.linkSpeedMbps << " Mbps";
+    } else {
+      oss << "N/A";
+    }
+    renderInfoRow("Link Speed", oss.str().c_str(), COL_YELLOW);
+
+    // Ping latency
+    oss.str("");
+    if (netInfo.pingLatencyMs >= 0) {
+      oss << std::fixed << std::setprecision(0) << netInfo.pingLatencyMs
+          << " ms";
+      ImVec4 pingColor = netInfo.pingLatencyMs < 50    ? COL_GREEN
+                         : netInfo.pingLatencyMs < 100 ? COL_YELLOW
+                                                       : COL_RED;
+      renderInfoRow("Ping (8.8.8.8)", oss.str().c_str(), pingColor);
+    } else {
+      renderInfoRow("Ping (8.8.8.8)", "N/A", COL_TEXT_DIM);
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##NetStats", ImVec2(halfWidth, 250), true);
+  {
+    ImGui::TextColored(COL_ACCENT, "TRAFFIC STATISTICS");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    renderInfoRow("Total Received",
+                  formatBytes(netInfo.totalBytesReceived).c_str(), COL_GREEN);
+    renderInfoRow("Total Sent", formatBytes(netInfo.totalBytesSent).c_str(),
+                  COL_ORANGE);
+
+    // Packet counts
+    std::ostringstream oss;
+    oss << netInfo.packetsReceived;
+    renderInfoRow("Packets In", oss.str().c_str(), COL_TEXT);
+
+    oss.str("");
+    oss << netInfo.packetsSent;
+    renderInfoRow("Packets Out", oss.str().c_str(), COL_TEXT);
+
+    // Active TCP connections
+    oss.str("");
+    oss << netInfo.activeTcpConnections;
+    ImVec4 tcpColor = netInfo.activeTcpConnections > 100  ? COL_YELLOW
+                      : netInfo.activeTcpConnections > 50 ? COL_ORANGE
+                                                          : COL_CYAN;
+    renderInfoRow("TCP Connections", oss.str().c_str(), tcpColor);
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+}
+
+// ─── System Tab (NEW) ───────────────────────────────────────────────────────
+void GUI::renderSystemTab(const SystemInfo &sysInfo) {
+  ImGui::TextColored(COL_ACCENT, "SYSTEM INFORMATION");
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  float contentWidth = ImGui::GetContentRegionAvail().x;
+  float halfWidth = (contentWidth - 15) / 2.0f;
+
+  // ── Left: Computer & OS ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##SysComputer", ImVec2(halfWidth, 280), true);
+  {
+    // Computer icon header
+    ImGui::TextColored(COL_CYAN, "COMPUTER");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    renderInfoRow("Computer Name", sysInfo.computerName.c_str(), COL_GREEN);
+    renderInfoRow("User", sysInfo.userName.c_str(), COL_TEXT);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(COL_PURPLE, "OPERATING SYSTEM");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    renderInfoRow("OS", sysInfo.osVersion.c_str(), COL_TEXT);
+
+    // Uptime
+    renderInfoRow("Uptime", formatUptime(sysInfo.uptimeSeconds).c_str(),
+                  COL_YELLOW);
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  // ── Right: CPU & RAM ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##SysHardware", ImVec2(halfWidth, 280), true);
+  {
+    ImGui::TextColored(COL_ORANGE, "PROCESSOR");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    renderInfoRow("CPU", sysInfo.cpuName.c_str(), COL_TEXT);
+
+    std::ostringstream oss;
+    oss << sysInfo.cpuCores << " Cores / " << sysInfo.cpuLogicalCores
+        << " Threads";
+    renderInfoRow("Cores", oss.str().c_str(), COL_GREEN);
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::TextColored(COL_CYAN, "MEMORY");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    double ramGB = (double)sysInfo.totalRAMBytes / (1024.0 * 1024.0 * 1024.0);
+    oss.str("");
+    oss << std::fixed << std::setprecision(1) << ramGB << " GB";
+    renderInfoRow("Total RAM", oss.str().c_str(), COL_TEXT);
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+}
+
+// ─── Info Row Helper ─────────────────────────────────────────────────────────
+void GUI::renderInfoRow(const char *label, const char *value,
+                        ImVec4 valueColor) {
+  ImGui::TextColored(COL_TEXT_DIM, "%s:", label);
+  ImGui::SameLine(180);
+  ImGui::TextColored(valueColor, "%s", value);
+  ImGui::Spacing();
+}
+
+// ─── Circular Gauge ──────────────────────────────────────────────────────────
+void GUI::renderCircularGauge(const char *label, float fraction, ImVec4 color,
+                              float radius) {
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImVec2 center = ImVec2(pos.x + radius, pos.y + radius);
+
+  float thickness = 7.0f;
+  int segments = 80;
+
+  float startAngle = -((float)M_PI * 0.75f);
+  float endAngle = (float)M_PI * 0.75f;
+  float totalArc = endAngle - startAngle;
+
+  for (int i = 0; i < segments; i++) {
+    float a1 = startAngle + (totalArc * i / segments);
+    float a2 = startAngle + (totalArc * (i + 1) / segments);
+    ImVec2 p1 =
+        ImVec2(center.x + cosf(a1) * radius, center.y + sinf(a1) * radius);
+    ImVec2 p2 =
+        ImVec2(center.x + cosf(a2) * radius, center.y + sinf(a2) * radius);
+    dl->AddLine(p1, p2, ImColor(0.20f, 0.20f, 0.28f, 1.0f), thickness);
+  }
+
+  float valueAngle = startAngle + totalArc * fraction;
+  int valueSegments = (int)(segments * fraction);
+  for (int i = 0; i < valueSegments; i++) {
+    float a1 = startAngle + (valueAngle - startAngle) * i / valueSegments;
+    float a2 = startAngle + (valueAngle - startAngle) * (i + 1) / valueSegments;
+
+    ImVec2 gp1 =
+        ImVec2(center.x + cosf(a1) * radius, center.y + sinf(a1) * radius);
+    ImVec2 gp2 =
+        ImVec2(center.x + cosf(a2) * radius, center.y + sinf(a2) * radius);
+    dl->AddLine(gp1, gp2, ImColor(color.x, color.y, color.z, 0.25f),
+                thickness + 6.0f);
+    dl->AddLine(gp1, gp2, ImColor(color), thickness);
+  }
+
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%.0f%%", fraction * 100.0f);
+  ImVec2 textSize = ImGui::CalcTextSize(buf);
+  dl->AddText(ImVec2(center.x - textSize.x / 2, center.y - textSize.y / 2 - 6),
+              ImColor(COL_TEXT), buf);
+
+  ImVec2 labelSize = ImGui::CalcTextSize(label);
+  dl->AddText(ImVec2(center.x - labelSize.x / 2, center.y + textSize.y / 2 + 2),
+              ImColor(COL_TEXT_DIM), label);
+
+  ImGui::Dummy(ImVec2(radius * 2, radius * 2 + 8));
+}
+
+// ─── Graph (Area Chart) ─────────────────────────────────────────────────────
+void GUI::renderGraph(const char *label, const float *data, int dataSize,
+                      int offset, float maxVal, ImVec4 color, ImVec2 size) {
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  if (size.x < 0)
+    size.x = ImGui::GetContentRegionAvail().x;
+  if (size.y < 0)
+    size.y = 100;
+
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+
+  dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                    ImColor(0.08f, 0.08f, 0.12f, 1.0f), 6.0f);
+
+  for (int i = 1; i < 4; i++) {
+    float y = pos.y + size.y * i / 4.0f;
+    dl->AddLine(ImVec2(pos.x + 4, y), ImVec2(pos.x + size.x - 4, y),
+                ImColor(0.15f, 0.15f, 0.22f, 0.5f));
+  }
+
+  if (maxVal <= 0.0f)
+    maxVal = 1.0f;
+
+  std::vector<ImVec2> linePoints;
+  for (int i = 0; i < dataSize; i++) {
+    int idx = (offset + 1 + i) % dataSize;
+    float val = data[idx] / maxVal;
+    if (val > 1.0f)
+      val = 1.0f;
+    if (val < 0.0f)
+      val = 0.0f;
+    float x = pos.x + (size.x * i / (dataSize - 1));
+    float y = pos.y + size.y - (size.y * val);
+    linePoints.push_back(ImVec2(x, y));
+  }
+
+  for (int i = 0; i < (int)linePoints.size() - 1; i++) {
+    ImVec2 p1 = linePoints[i];
+    ImVec2 p2 = linePoints[i + 1];
+
+    ImU32 topColor = ImColor(color.x, color.y, color.z, 0.30f);
+    ImU32 botColor = ImColor(color.x, color.y, color.z, 0.02f);
+
+    dl->AddRectFilledMultiColor(ImVec2(p1.x, p1.y),
+                                ImVec2(p2.x, pos.y + size.y), topColor,
+                                topColor, botColor, botColor);
+  }
+
+  for (int i = 0; i < (int)linePoints.size() - 1; i++) {
+    dl->AddLine(linePoints[i], linePoints[i + 1], ImColor(color), 2.5f);
+  }
+
+  dl->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+              ImColor(0.18f, 0.18f, 0.25f, 0.5f), 6.0f);
+
+  ImGui::Dummy(size);
+}
+
+// ─── Mini Bar ────────────────────────────────────────────────────────────────
+void GUI::renderMiniBar(const char *label, float fraction, ImVec4 color) {
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  float width = ImGui::GetContentRegionAvail().x;
+  float height = 14.0f;
+
+  dl->AddRectFilled(pos, ImVec2(pos.x + width, pos.y + height),
+                    ImColor(0.15f, 0.15f, 0.22f, 1.0f), 7.0f);
+
+  if (fraction > 0.0f) {
+    dl->AddRectFilled(pos, ImVec2(pos.x + width * fraction, pos.y + height),
+                      ImColor(color), 7.0f);
+    dl->AddRectFilled(pos, ImVec2(pos.x + width * fraction, pos.y + height),
+                      ImColor(color.x, color.y, color.z, 0.15f), 7.0f);
+  }
+
+  ImGui::Dummy(ImVec2(width, height + 4));
+}
+
+// ─── History Update ──────────────────────────────────────────────────────────
+void GUI::updateHistory(float cpuVal, float memVal, float gpuVal, float dlVal,
+                        float ulVal) {
+  cpuHistory[historyOffset] = cpuVal;
+  memHistory[historyOffset] = memVal;
+  gpuHistory[historyOffset] = gpuVal;
+  downloadHistory[historyOffset] = dlVal;
+  uploadHistory[historyOffset] = ulVal;
+  historyOffset = (historyOffset + 1) % HISTORY_SIZE;
+}
+
+// ─── Utilities ───────────────────────────────────────────────────────────────
+std::string GUI::formatBytes(uint64_t bytes) {
+  std::ostringstream oss;
+  if (bytes >= 1024ULL * 1024 * 1024) {
+    oss << std::fixed << std::setprecision(2)
+        << (double)bytes / (1024.0 * 1024.0 * 1024.0) << " GB";
+  } else if (bytes >= 1024ULL * 1024) {
+    oss << std::fixed << std::setprecision(1)
+        << (double)bytes / (1024.0 * 1024.0) << " MB";
+  } else if (bytes >= 1024ULL) {
+    oss << std::fixed << std::setprecision(1) << (double)bytes / 1024.0
+        << " KB";
+  } else {
+    oss << bytes << " B";
+  }
+  return oss.str();
+}
+
+std::string GUI::formatSpeed(double bytesPerSec) {
+  std::ostringstream oss;
+  if (bytesPerSec >= 1024.0 * 1024.0) {
+    oss << std::fixed << std::setprecision(2) << bytesPerSec / (1024.0 * 1024.0)
+        << " MB/s";
+  } else if (bytesPerSec >= 1024.0) {
+    oss << std::fixed << std::setprecision(1) << bytesPerSec / 1024.0
+        << " KB/s";
+  } else {
+    oss << std::fixed << std::setprecision(0) << bytesPerSec << " B/s";
+  }
+  return oss.str();
+}
+
+std::string GUI::formatUptime(uint64_t seconds) {
+  uint64_t days = seconds / 86400;
+  uint64_t hours = (seconds % 86400) / 3600;
+  uint64_t mins = (seconds % 3600) / 60;
+
+  std::ostringstream oss;
+  if (days > 0) {
+    oss << days << "d " << hours << "h " << mins << "m";
+  } else if (hours > 0) {
+    oss << hours << "h " << mins << "m";
+  } else {
+    oss << mins << " min";
+  }
+  return oss.str();
+}
+
+// ─── End Frame & Cleanup ────────────────────────────────────────────────────
 void GUI::endFrame() {
   ImGui::Render();
   int display_w, display_h;
   glfwGetFramebufferSize(window, &display_w, &display_h);
   glViewport(0, 0, display_w, display_h);
-  glClearColor(0.10f, 0.10f, 0.13f, 1.00f);
+  glClearColor(COL_BG.x, COL_BG.y, COL_BG.z, COL_BG.w);
   glClear(GL_COLOR_BUFFER_BIT);
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
   glfwSwapBuffers(window);
 }
 
@@ -342,11 +1047,9 @@ void GUI::cleanup() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
   }
-
   if (window) {
     glfwDestroyWindow(window);
   }
-
   glfwTerminate();
   initialized = false;
 }

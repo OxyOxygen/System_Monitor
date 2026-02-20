@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(SystemMonitor VERSION 1.0 LANGUAGES CXX)
+project(SystemMonitor VERSION 2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,6 +42,9 @@ set(SOURCES
     src/disk_monitor.cpp
     src/gpu_monitor.cpp
     src/power_monitor.cpp
+    src/process_monitor.cpp
+    src/network_monitor.cpp
+    src/system_info.cpp
     src/gui.cpp
 )
 
@@ -52,7 +55,9 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_SOURCES})
 target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     glfw
-    pdh      # Windows Performance Data Helper
+    pdh          # Windows Performance Data Helper
+    psapi        # Process Status API
+    iphlpapi     # IP Helper API (network stats)
 )
 
 # Set as startup project for Visual Studio
