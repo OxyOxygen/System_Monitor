@@ -2,7 +2,6 @@
 #include <sstream>
 #include <windows.h>
 
-
 #pragma comment(lib, "advapi32.lib")
 
 SystemInfoMonitor::SystemInfoMonitor() { gatherStaticInfo(); }
@@ -42,11 +41,21 @@ void SystemInfoMonitor::gatherStaticInfo() {
         info.osVersion = productName;
       }
 
-      // Append build number
+      // Read build number
       char buildNum[64] = {};
       bufSize = sizeof(buildNum);
       if (RegQueryValueExA(hKey, "CurrentBuildNumber", nullptr, &type,
                            (LPBYTE)buildNum, &bufSize) == ERROR_SUCCESS) {
+        // Windows 11 has build >= 22000 but registry still says "Windows 10"
+        int buildNumber = atoi(buildNum);
+        if (buildNumber >= 22000) {
+          // Replace "Windows 10" with "Windows 11" in the product name
+          size_t pos = info.osVersion.find("Windows 10");
+          if (pos != std::string::npos) {
+            info.osVersion.replace(pos, 10, "Windows 11");
+          }
+        }
+
         info.osVersion += " (Build ";
         info.osVersion += buildNum;
         info.osVersion += ")";

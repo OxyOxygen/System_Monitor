@@ -2,6 +2,7 @@
 
 #include "cpu_monitor.h"
 #include "disk_monitor.h"
+#include "energy_monitor.h"
 #include "gpu_monitor.h"
 #include "memory_monitor.h"
 #include "network_monitor.h"
@@ -15,7 +16,7 @@
 
 struct GLFWwindow;
 
-enum class Tab { Overview = 0, Processes, Network, System };
+enum class Tab { Overview = 0, Processes, Network, Energy, System };
 
 class GUI {
 public:
@@ -29,7 +30,8 @@ public:
               const MemoryInfo &memInfo, const DiskInfo &diskInfo,
               const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
               const std::vector<ProcessInfo> &processes,
-              const NetworkInfo &netInfo, const SystemInfo &sysInfo);
+              const NetworkInfo &netInfo, const SystemInfo &sysInfo,
+              const EnergyInfo &energyInfo);
   void endFrame();
   void cleanup();
 
@@ -45,6 +47,7 @@ private:
   float gpuHistory[HISTORY_SIZE];
   float downloadHistory[HISTORY_SIZE];
   float uploadHistory[HISTORY_SIZE];
+  float powerHistory[HISTORY_SIZE]; // Watts history for energy tab
   int historyOffset;
 
   // Smooth animation values
@@ -58,13 +61,14 @@ private:
   void setupStyle();
   void renderSidebar(double cpuUsage, const MemoryInfo &memInfo,
                      const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
-                     const PowerInfo &powerInfo);
+                     const PowerInfo &powerInfo, const EnergyInfo &energyInfo);
   void renderOverviewTab(double cpuUsage, const std::vector<double> &coreUsages,
                          const MemoryInfo &memInfo, const DiskInfo &diskInfo,
                          const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
                          const NetworkInfo &netInfo);
   void renderProcessesTab(const std::vector<ProcessInfo> &processes);
   void renderNetworkTab(const NetworkInfo &netInfo);
+  void renderEnergyTab(const EnergyInfo &energyInfo, const GpuInfo &gpuInfo);
   void renderSystemTab(const SystemInfo &sysInfo);
 
   // Custom widgets
@@ -77,7 +81,7 @@ private:
 
   // Utilities
   void updateHistory(float cpuVal, float memVal, float gpuVal, float dlVal,
-                     float ulVal);
+                     float ulVal, float wattsVal);
   static std::string formatBytes(uint64_t bytes);
   static std::string formatSpeed(double bytesPerSec);
   static std::string formatUptime(uint64_t seconds);

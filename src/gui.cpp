@@ -45,6 +45,7 @@ GUI::GUI()
   memset(gpuHistory, 0, sizeof(gpuHistory));
   memset(downloadHistory, 0, sizeof(downloadHistory));
   memset(uploadHistory, 0, sizeof(uploadHistory));
+  memset(powerHistory, 0, sizeof(powerHistory));
 }
 
 GUI::~GUI() { cleanup(); }
@@ -158,14 +159,16 @@ void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
                  const MemoryInfo &memInfo, const DiskInfo &diskInfo,
                  const GpuInfo &gpuInfo, const PowerInfo &powerInfo,
                  const std::vector<ProcessInfo> &processes,
-                 const NetworkInfo &netInfo, const SystemInfo &sysInfo) {
+                 const NetworkInfo &netInfo, const SystemInfo &sysInfo,
+                 const EnergyInfo &energyInfo) {
   // Update history
   float memPercent = static_cast<float>(memInfo.usagePercent);
   float gpuPercent =
       gpuInfo.available ? static_cast<float>(gpuInfo.gpuUsage) : 0.0f;
   updateHistory(static_cast<float>(cpuUsage), memPercent, gpuPercent,
                 static_cast<float>(netInfo.downloadSpeed),
-                static_cast<float>(netInfo.uploadSpeed));
+                static_cast<float>(netInfo.uploadSpeed),
+                static_cast<float>(energyInfo.totalWatts));
 
   // Smooth animations (lerp)
   float dt = ImGui::GetIO().DeltaTime;
@@ -195,7 +198,7 @@ void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
 
   // ── Sidebar ──
   ImGui::BeginChild("##Sidebar", ImVec2(sidebarWidth, totalHeight), false);
-  renderSidebar(cpuUsage, memInfo, diskInfo, gpuInfo, powerInfo);
+  renderSidebar(cpuUsage, memInfo, diskInfo, gpuInfo, powerInfo, energyInfo);
   ImGui::EndChild();
 
   ImGui::SameLine();
@@ -226,6 +229,7 @@ void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
   drawTab("  Overview  ", Tab::Overview);
   drawTab(" Processes  ", Tab::Processes);
   drawTab("  Network   ", Tab::Network);
+  drawTab("  Energy    ", Tab::Energy);
   drawTab("  System    ", Tab::System);
 
   ImGui::PopStyleVar();
@@ -256,6 +260,9 @@ void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
   case Tab::Network:
     renderNetworkTab(netInfo);
     break;
+  case Tab::Energy:
+    renderEnergyTab(energyInfo, gpuInfo);
+    break;
   case Tab::System:
     renderSystemTab(sysInfo);
     break;
@@ -269,7 +276,8 @@ void GUI::render(double cpuUsage, const std::vector<double> &coreUsages,
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 void GUI::renderSidebar(double cpuUsage, const MemoryInfo &memInfo,
                         const DiskInfo &diskInfo, const GpuInfo &gpuInfo,
-                        const PowerInfo &powerInfo) {
+                        const PowerInfo &powerInfo,
+                        const EnergyInfo &energyInfo) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
   ImVec2 pos = ImGui::GetCursorScreenPos();
   ImVec2 size = ImGui::GetContentRegionAvail();
@@ -336,6 +344,27 @@ void GUI::renderSidebar(double cpuUsage, const MemoryInfo &memInfo,
     renderCircularGauge("BAT", animBattery, batColor, gaugeRadius);
   } else {
     renderCircularGauge("AC", 1.0f, COL_GREEN, gaugeRadius);
+  }
+
+  // Power draw display
+  ImGui::Spacing();
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Spacing();
+  ImGui::SetCursorPosX(24);
+  ImGui::TextColored(COL_TEXT_DIM, "POWER DRAW");
+  ImGui::SetCursorPosX(24);
+  {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(0) << energyInfo.totalWatts << "W";
+    ImGui::TextColored(COL_YELLOW, "%s", oss.str().c_str());
+  }
+  ImGui::SetCursorPosX(24);
+  {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << energyInfo.sessionCost << " "
+        << energyInfo.currency.c_str();
+    ImGui::TextColored(COL_TEXT_DIM, "%s", oss.str().c_str());
   }
 }
 
@@ -442,21 +471,33 @@ void GUI::renderOverviewTab(double cpuUsage,
   ImGui::BeginChild("##GpuSection", ImVec2(thirdWidth, 220), true);
   {
     ImGui::TextColored(COL_ORANGE, "GPU");
+    if (!gpuInfo.gpuName.empty()) {
+      ImGui::SameLine();
+      ImGui::TextColored(COL_TEXT_DIM, " %s", gpuInfo.gpuName.c_str());
+    }
     ImGui::Spacing();
     if (gpuInfo.available) {
       renderGraph("##gpuGraph", gpuHistory, HISTORY_SIZE, historyOffset, 100.0f,
                   COL_ORANGE, ImVec2(-1, 90));
       ImGui::Spacing();
-      ImGui::Spacing();
       std::ostringstream oss;
       oss << std::fixed << std::setprecision(1) << gpuInfo.gpuUsage << "%%";
       ImGui::TextColored(COL_TEXT, "Usage: %s", oss.str().c_str());
-      if (gpuInfo.vramUsed > 0) {
-        double vramGB =
+      if (gpuInfo.vramTotal > 0) {
+        double vramUsedGB =
             static_cast<double>(gpuInfo.vramUsed) / (1024.0 * 1024.0 * 1024.0);
+        double vramTotalGB =
+            static_cast<double>(gpuInfo.vramTotal) / (1024.0 * 1024.0 * 1024.0);
         oss.str("");
-        oss << std::fixed << std::setprecision(2) << vramGB << " GB";
+        oss << std::fixed << std::setprecision(1) << vramUsedGB << " / "
+            << std::setprecision(0) << vramTotalGB << " GB";
         ImGui::TextColored(COL_TEXT_DIM, "VRAM: %s", oss.str().c_str());
+      }
+      {
+        oss.str("");
+        oss << std::fixed << std::setprecision(0) << gpuInfo.powerDrawWatts
+            << "W";
+        ImGui::TextColored(COL_TEXT_DIM, "Power: %s", oss.str().c_str());
       }
     } else {
       ImGui::Spacing();
@@ -759,6 +800,212 @@ void GUI::renderNetworkTab(const NetworkInfo &netInfo) {
   ImGui::PopStyleColor();
 }
 
+// ─── Energy Tab ──────────────────────────────────────────────────────────────
+void GUI::renderEnergyTab(const EnergyInfo &energyInfo,
+                          const GpuInfo &gpuInfo) {
+  ImGui::TextColored(COL_YELLOW, "ENERGY MONITOR");
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  float contentWidth = ImGui::GetContentRegionAvail().x;
+  float halfWidth = (contentWidth - 15) / 2.0f;
+
+  // ── Left: Real-time Power ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##PowerRealtime", ImVec2(halfWidth, 320), true);
+  {
+    ImGui::TextColored(COL_YELLOW, "REAL-TIME POWER");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Big watts display
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(0) << energyInfo.totalWatts;
+      ImGui::PushFont(nullptr); // Use default (we'll make it big via scale)
+      float oldScale = ImGui::GetFont()->Scale;
+      ImGui::GetFont()->Scale = 2.0f;
+      ImGui::PushFont(ImGui::GetFont());
+      ImGui::TextColored(COL_YELLOW, "%s W", oss.str().c_str());
+      ImGui::GetFont()->Scale = oldScale;
+      ImGui::PopFont();
+      ImGui::PopFont();
+    }
+    ImGui::TextColored(COL_TEXT_DIM, "Total System Power (estimated)");
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Component breakdown
+    ImGui::TextColored(COL_TEXT_DIM, "BREAKDOWN");
+    ImGui::Spacing();
+
+    // CPU power bar
+    float maxWatts =
+        (float)(energyInfo.cpuTdpWatts + energyInfo.gpuTdpWatts + 50);
+    if (maxWatts < 100)
+      maxWatts = 100;
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(0) << energyInfo.cpuWatts << "W";
+      ImGui::TextColored(COL_GREEN, "CPU");
+      ImGui::SameLine(120);
+      ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+      float frac = (float)energyInfo.cpuWatts / maxWatts;
+      renderMiniBar("##cpuPow", frac, COL_GREEN);
+    }
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(0) << energyInfo.gpuWatts << "W";
+      ImGui::TextColored(COL_ORANGE, "GPU");
+      ImGui::SameLine(120);
+      ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+      float frac = (float)energyInfo.gpuWatts / maxWatts;
+      renderMiniBar("##gpuPow", frac, COL_ORANGE);
+    }
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(0) << energyInfo.systemBaseWatts
+          << "W";
+      ImGui::TextColored(COL_PURPLE, "System");
+      ImGui::SameLine(120);
+      ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+      float frac = (float)energyInfo.systemBaseWatts / maxWatts;
+      renderMiniBar("##sysPow", frac, COL_PURPLE);
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::SameLine();
+
+  // ── Right: Cost Tracking ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##CostTracking", ImVec2(halfWidth, 320), true);
+  {
+    ImGui::TextColored(COL_CYAN, "COST TRACKING");
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Session cost - big display
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(2) << energyInfo.sessionCost;
+      ImGui::PushFont(nullptr);
+      float oldScale = ImGui::GetFont()->Scale;
+      ImGui::GetFont()->Scale = 2.0f;
+      ImGui::PushFont(ImGui::GetFont());
+      ImGui::TextColored(COL_CYAN, "%s %s", oss.str().c_str(),
+                         energyInfo.currency.c_str());
+      ImGui::GetFont()->Scale = oldScale;
+      ImGui::PopFont();
+      ImGui::PopFont();
+    }
+    ImGui::TextColored(COL_TEXT_DIM, "Session Cost");
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Session details
+    {
+      std::ostringstream oss;
+      int sessionMins = (int)(energyInfo.sessionHours * 60);
+      int h = sessionMins / 60;
+      int m = sessionMins % 60;
+      oss << h << "h " << m << "m";
+      renderInfoRow("Session Duration", oss.str().c_str(), COL_TEXT);
+    }
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(1) << energyInfo.sessionEnergyWh
+          << " Wh";
+      renderInfoRow("Energy Used", oss.str().c_str(), COL_TEXT);
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Projections
+    ImGui::TextColored(COL_TEXT_DIM, "PROJECTIONS");
+    ImGui::Spacing();
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(2) << energyInfo.dailyEstimateCost
+          << " " << energyInfo.currency.c_str() << "  (" << std::setprecision(2)
+          << energyInfo.dailyEstimateKwh << " kWh)";
+      renderInfoRow("Daily (24h)", oss.str().c_str(), COL_YELLOW);
+    }
+
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(1)
+          << energyInfo.monthlyEstimateCost << " "
+          << energyInfo.currency.c_str();
+      renderInfoRow("Monthly (30d)", oss.str().c_str(), COL_ORANGE);
+    }
+
+    ImGui::Spacing();
+    {
+      std::ostringstream oss;
+      oss << std::fixed << std::setprecision(2) << energyInfo.costPerKwh << " "
+          << energyInfo.currency.c_str() << "/kWh";
+      ImGui::TextColored(COL_TEXT_DIM, "Rate: %s", oss.str().c_str());
+    }
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::Spacing();
+  ImGui::Spacing();
+
+  // ── Bottom: Power Graph ──
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, COL_PANEL);
+  ImGui::BeginChild("##PowerGraph", ImVec2(-1, 200), true);
+  {
+    ImGui::TextColored(COL_YELLOW, "POWER HISTORY");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 100);
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(0) << energyInfo.totalWatts << " W";
+    ImGui::TextColored(COL_TEXT, "%s", oss.str().c_str());
+    ImGui::Spacing();
+
+    // Find max for graph scaling
+    float maxPower = 100.0f;
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+      if (powerHistory[i] > maxPower)
+        maxPower = powerHistory[i];
+    }
+    maxPower *= 1.2f; // 20% headroom
+
+    renderGraph("##powerGraph", powerHistory, HISTORY_SIZE, historyOffset,
+                maxPower, COL_YELLOW, ImVec2(-1, 130));
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleColor();
+
+  ImGui::Spacing();
+
+  // TDP Info row
+  {
+    std::ostringstream oss;
+    oss << "CPU TDP: " << energyInfo.cpuTdpWatts << "W";
+    if (gpuInfo.available) {
+      oss << "  |  GPU TDP: " << gpuInfo.tdpWatts << "W";
+    }
+    oss << "  |  GPU: " << gpuInfo.gpuName;
+    ImGui::TextColored(COL_TEXT_DIM, "%s", oss.str().c_str());
+  }
+}
+
 // ─── System Tab (NEW) ───────────────────────────────────────────────────────
 void GUI::renderSystemTab(const SystemInfo &sysInfo) {
   ImGui::TextColored(COL_ACCENT, "SYSTEM INFORMATION");
@@ -972,12 +1219,13 @@ void GUI::renderMiniBar(const char *label, float fraction, ImVec4 color) {
 
 // ─── History Update ──────────────────────────────────────────────────────────
 void GUI::updateHistory(float cpuVal, float memVal, float gpuVal, float dlVal,
-                        float ulVal) {
+                        float ulVal, float wattsVal) {
   cpuHistory[historyOffset] = cpuVal;
   memHistory[historyOffset] = memVal;
   gpuHistory[historyOffset] = gpuVal;
   downloadHistory[historyOffset] = dlVal;
   uploadHistory[historyOffset] = ulVal;
+  powerHistory[historyOffset] = wattsVal;
   historyOffset = (historyOffset + 1) % HISTORY_SIZE;
 }
 

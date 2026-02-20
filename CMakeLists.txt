@@ -45,6 +45,7 @@ set(SOURCES
     src/process_monitor.cpp
     src/network_monitor.cpp
     src/system_info.cpp
+    src/energy_monitor.cpp
     src/gui.cpp
 )
 
@@ -58,6 +59,7 @@ target_link_libraries(${PROJECT_NAME}
     pdh          # Windows Performance Data Helper
     psapi        # Process Status API
     iphlpapi     # IP Helper API (network stats)
+    dxgi         # DXGI (GPU detection)
 )
 
 # Set as startup project for Visual Studio

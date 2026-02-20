@@ -1,5 +1,6 @@
 #include "cpu_monitor.h"
 #include "disk_monitor.h"
+#include "energy_monitor.h"
 #include "gpu_monitor.h"
 #include "gui.h"
 #include "memory_monitor.h"
@@ -27,6 +28,7 @@ int main() {
   ProcessMonitor processMonitor;
   NetworkMonitor networkMonitor;
   SystemInfoMonitor systemInfoMonitor;
+  EnergyMonitor energyMonitor;
 
   // Update interval (in seconds)
   constexpr double updateInterval = 1.0;
@@ -41,6 +43,7 @@ int main() {
   PowerInfo powerInfo = {};
   std::vector<ProcessInfo> processes;
   NetworkInfo netInfo = {};
+  EnergyInfo energyInfo = {};
 
   // Main loop
   while (!gui.shouldClose()) {
@@ -59,13 +62,17 @@ int main() {
       netInfo = networkMonitor.getNetworkInfo();
       systemInfoMonitor.updateDynamic();
 
+      // Update energy monitor with current CPU/GPU usage and TDP
+      energyMonitor.update(cpuUsage, gpuInfo.gpuUsage, 0, gpuInfo.tdpWatts);
+      energyInfo = energyMonitor.getEnergyInfo();
+
       lastUpdate = now;
     }
 
     // Render GUI
     gui.beginFrame();
     gui.render(cpuUsage, coreUsages, memInfo, diskInfo, gpuInfo, powerInfo,
-               processes, netInfo, systemInfoMonitor.getInfo());
+               processes, netInfo, systemInfoMonitor.getInfo(), energyInfo);
     gui.endFrame();
 
     // Small sleep to prevent excessive CPU usage by the monitor itself
