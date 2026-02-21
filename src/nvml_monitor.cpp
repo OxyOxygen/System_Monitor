@@ -44,6 +44,8 @@ void NvmlMonitor::resolveSymbols() {
       GetProcAddress(hNvml, "nvmlDeviceGetUtilizationRates"));
   pfnGetClock = reinterpret_cast<PFN_nvmlDeviceGetClockInfo>(
       GetProcAddress(hNvml, "nvmlDeviceGetClockInfo"));
+  pfnGetMaxClock = reinterpret_cast<PFN_nvmlDeviceGetMaxClockInfo>(
+      GetProcAddress(hNvml, "nvmlDeviceGetMaxClockInfo"));
   pfnGetFan = reinterpret_cast<PFN_nvmlDeviceGetFanSpeed>(
       GetProcAddress(hNvml, "nvmlDeviceGetFanSpeed"));
   pfnGetPcie = reinterpret_cast<PFN_nvmlDeviceGetPcieThroughput>(
@@ -197,6 +199,10 @@ void NvmlMonitor::update() {
     pfnGetClock(device, NVML_CLOCK_GRAPHICS, &info.graphicsClock);
     pfnGetClock(device, NVML_CLOCK_SM, &info.smClock);
     pfnGetClock(device, NVML_CLOCK_MEM, &info.memClock);
+  }
+
+  if (pfnGetMaxClock) {
+    pfnGetMaxClock(device, NVML_CLOCK_GRAPHICS, &info.maxGraphicsClock);
   }
 
   // Fan

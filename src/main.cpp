@@ -16,6 +16,7 @@
 #include "process_monitor.h"
 #include "system_info.h"
 #include <chrono>
+#include <cstdint>
 #include <thread>
 #include <vector>
 
@@ -115,9 +116,8 @@ int main() {
         }
 
         // Update performance analyzer with NVML clocks
-        perfAnalyzer.update(cpuUsage, gpuInfo.gpuUsage,
-                            nvmlInfo.graphicsClockMHz,
-                            nvmlInfo.maxGraphicsClockMHz);
+        perfAnalyzer.update(cpuUsage, gpuInfo.gpuUsage, nvmlInfo.graphicsClock,
+                            nvmlInfo.maxGraphicsClock);
       } else {
         perfAnalyzer.update(cpuUsage, gpuInfo.gpuUsage, 0, 0);
       }
@@ -128,10 +128,8 @@ int main() {
         perfScore.update(
             cpuMonitor.getNumCores(), 0.0, // Clock speed not easily available
             memInfo.totalRAM, memInfo.totalRAM - memInfo.usedRAM,
-            gpuInfo.vramTotal,
-            benchmarkRan ? benchResult.theoreticalTFLOPS_FP32 : 0.0,
-            nvmlInfo.cudaComputeCapMajor, diskInfo.totalSpace,
-            diskInfo.freeSpace);
+            gpuInfo.vramTotal, benchmarkRan ? benchResult.fp32Tflops : 0.0,
+            nvmlInfo.cudaCapMajor, diskInfo.totalSpace, diskInfo.freeSpace);
         scoreInfo = perfScore.getScore();
         scoreCalculated = true;
       }

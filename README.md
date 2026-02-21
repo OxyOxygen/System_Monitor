@@ -27,15 +27,18 @@ A dedicated tab designed for AI engineers and ML practitioners:
 ## Features
 
 ### Overview Tab
-- **CPU**: Total usage with live graph + per-core usage bars
-- **Memory**: RAM usage with live graph + usage breakdown
-- **Disk**: C: drive usage with progress bar
-- **GPU**: GPU name, utilization graph, VRAM used/total, power draw
-- **Power**: Battery status, AC/Battery mode, remaining time
+- **CPU**: Total usage history graph + per-core status bars + [NEW] **Real-time Temperature** & Throttling status
+- **Memory**: RAM usage tracking with allocation bars and live history
+- **Disk I/O**: [NEW] **Per-drive activity graphs** (Read/Write speeds) and IOPS tracking
+- **Drives**: [NEW] Multi-drive listing (C:, D:, etc.) with volume labels and usage %
+- **Network**: Live Download/Upload speeds with peak tracking
+- **Power**: Battery status, AC/Battery mode, and remaining time estimation
 
 ### Processes Tab
-- Top 15 processes sorted by memory usage
-- PID, process name, memory size, and visual memory bar
+- Top 15 processes with real-time data
+- [NEW] **Sort by CPU% or Memory Usage** toggle
+- [NEW] **CPU Usage %** column for every process
+- PID, process name, memory size, and visual usage bars
 - Scrollable table with resizable columns
 
 ### Network Tab
@@ -58,17 +61,20 @@ A dedicated tab designed for AI engineers and ML practitioners:
 - **Model Capacity Estimator** — 22 models across LLM, Vision, Diffusion, Audio categories with OK/NO compatibility
 - **Environment** — CUDA readiness, Python detection
 
-### 🔥 GPU Compute Tab
-- **NVML Real-Time Metrics** — temperature, power (mW precision), SM utilization, memory bus %, graphics/memory/SM clocks, fan speed, PCIe RX/TX bandwidth, NVENC/NVDEC utilization (dynamically loaded via `LoadLibrary` — no build dependency)
-- **Compute Capabilities** — CUDA compute capability, cores per SM, architecture detection (Maxwell→Blackwell), Tensor Core & RT Core detection, driver version
-- **Active GPU Processes** — lists all compute processes running on GPU with PID, name, and VRAM usage
-- **GPU Benchmark** — theoretical TFLOPS (FP32/FP16/INT8), measured VRAM bandwidth (GB/s via D3D11 buffer copy), AI readiness score (0-100) with labels like "EXCEPTIONAL" to "MINIMAL"
+### 🔥 GPU Compute & Gaming Tab
+- [NEW] **Gaming Performance Dashboard** — Estimated FPS and frame time tracking (CPU vs GPU ms)
+- [NEW] **Bottleneck Analysis** — High-precision detection for CPU or GPU limited scenarios
+- **NVML Real-Time Metrics** — temperature, power, SM utilization, clocks (Graphics/Memory/SM), fan speed, and PCIe bandwidth
+- **Compute Capabilities** — CUDA version, core count, architecture (Maxwell to Blackwell), and hardware features
+- **Active GPU Processes** — lists all processes utilizing the GPU with VRAM usage
+- **GPU Benchmark** — theoretical TFLOPS and measured VRAM bandwidth benchmarks
 - **Graceful Fallback** — if NVML is unavailable (non-NVIDIA GPU), shows a clear message and estimated data continue from DXGI/PDH
 
-### System Tab
-- Computer name, username, OS version
-- CPU model, core count, RAM info
-- System uptime
+### System & Performance Tab
+- [NEW] **System Performance Score** — 0-100 score based on hardware tier and current metrics
+- [NEW] **Letter Grades** — Automatic grading (S, A, B, C, D, F) for your system setup
+- **Hardware Specs**: Computer name, OS version, CPU model, core count, and RAM physical info
+- **Uptime**: Real-time system uptime counter
 
 ### Sidebar
 - Circular gauge widgets for CPU, Memory, Disk, GPU, and Battery

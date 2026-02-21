@@ -4,7 +4,6 @@
 #include <vector>
 #include <windows.h>
 
-
 // ============================================================================
 // NVML Type Definitions (matches NVIDIA's nvml.h without requiring the header)
 // ============================================================================
@@ -78,6 +77,9 @@ typedef nvmlReturn_t (*PFN_nvmlDeviceGetCudaComputeCapability)(nvmlDevice_t,
 typedef nvmlReturn_t (*PFN_nvmlSystemGetDriverVersion)(char *, unsigned int);
 typedef nvmlReturn_t (*PFN_nvmlDeviceGetComputeRunningProcesses_v3)(
     nvmlDevice_t, unsigned int *, nvmlProcessInfo_t *);
+typedef nvmlReturn_t (*PFN_nvmlDeviceGetMaxClockInfo)(nvmlDevice_t,
+                                                      nvmlClockType_t,
+                                                      unsigned int *);
 typedef nvmlReturn_t (*PFN_nvmlDeviceGetName)(nvmlDevice_t, char *,
                                               unsigned int);
 typedef nvmlReturn_t (*PFN_nvmlDeviceGetMemoryInfo)(nvmlDevice_t, void *);
@@ -110,6 +112,7 @@ struct NvmlInfo {
 
   // Clocks (MHz)
   unsigned int graphicsClock = 0;
+  unsigned int maxGraphicsClock = 0;
   unsigned int smClock = 0;
   unsigned int memClock = 0;
 
@@ -169,6 +172,7 @@ private:
   PFN_nvmlDeviceGetPowerUsage pfnGetPower = nullptr;
   PFN_nvmlDeviceGetUtilizationRates pfnGetUtil = nullptr;
   PFN_nvmlDeviceGetClockInfo pfnGetClock = nullptr;
+  PFN_nvmlDeviceGetMaxClockInfo pfnGetMaxClock = nullptr;
   PFN_nvmlDeviceGetFanSpeed pfnGetFan = nullptr;
   PFN_nvmlDeviceGetPcieThroughput pfnGetPcie = nullptr;
   PFN_nvmlDeviceGetEncoderUtilization pfnGetEncoder = nullptr;
