@@ -2485,7 +2485,7 @@ void GUI::saveReportToJson(const HpcReport& report, const SessionMetrics& metric
         out << "  },\n";
         
         out << "  \"bottleneck_analysis\": {\n";
-        out << "    \"primary_issue\": \"" << report.overallStatus << "\",\n";
+        out << "    \"primary_issue\": \"" << report.primaryBottleneck << "\",\n";
         out << "    \"hardware_hints\": [\n";
         for (size_t i = 0; i < report.insights.size(); ++i) {
             out << "      {\n";
