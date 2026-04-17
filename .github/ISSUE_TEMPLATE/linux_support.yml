@@ -1,0 +1,21 @@
+name: "Roadmap: Linux Support (Native /proc Integration)"
+description: Implementation of Linux telemetry gathering
+labels: ["roadmap", "help wanted", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Goal
+        Migrate the current Windows-specific monitoring (PDH, WMI, NVML) to a cross-platform or Linux-native approach.
+        
+        ### Implementation Details
+        - **CPU**: Read from `/proc/stat` and `/proc/cpuinfo`.
+        - **Memory**: Read from `/proc/meminfo`.
+        - **Network**: Read from `/proc/net/dev`.
+        - **GPU**: Integrate `NVML` (Linux) and `ROCm` if possible.
+        
+        ### Requirements
+        - Use `std::filesystem` for path handling.
+        - Ensure minimal overhead for the main GUI thread.
+        
+        This is a major step towards making HPC System Monitor cross-platform!

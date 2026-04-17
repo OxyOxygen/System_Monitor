@@ -8,6 +8,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include "GpuInterface.h"
 
 // ============================================================================
 // NVML Type Definitions
@@ -117,7 +118,7 @@ struct NvmlInfo {
   std::vector<NvmlDeviceInfo> devices;
 };
 
-class NvmlMonitor {
+class NvmlMonitor : public IGpuProvider {
 public:
   NvmlMonitor();
   ~NvmlMonitor();
@@ -125,7 +126,11 @@ public:
   bool init();
   void update();
   NvmlInfo getInfo() const;
-  bool isAvailable() const { return nvmlLoaded; }
+  
+  // IGpuProvider implementation
+  bool isAvailable() const override { return nvmlLoaded; }
+  std::string getProviderName() const override { return "NVIDIA NVML"; }
+  std::vector<UniversalGpuMetrics> getAllGpus() override;
 
 private:
   void processWorkerLoop();

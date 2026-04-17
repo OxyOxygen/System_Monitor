@@ -1,0 +1,33 @@
+name: Bug Report
+description: Report a problem with the system monitor
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear and concise description of what the bug is.
+      placeholder: Describe what happened...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Open application
+        2. Click on ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware / System Info
+      description: OS version, GPU model, CPU model, etc.
+      placeholder: Windows 11, NVIDIA RTX 3080, etc.

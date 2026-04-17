@@ -308,3 +308,27 @@ void NvmlMonitor::update() {
   // Main thread update is now a no-op.
   // getInfo() provides the latest background-pushed data.
 }
+
+std::vector<UniversalGpuMetrics> NvmlMonitor::getAllGpus() {
+    NvmlInfo currentInfo = getInfo();
+    std::vector<UniversalGpuMetrics> result;
+    
+    for (const auto& d : currentInfo.devices) {
+        UniversalGpuMetrics u;
+        u.name = d.name;
+        u.vendor = "NVIDIA";
+        u.loadPercent = d.gpuUtil;
+        u.memLoadPercent = d.memUtil;
+        u.vramUsedBytes = d.vramUsed;
+        u.vramTotalBytes = d.vramTotal;
+        u.tempC = d.temperatureC;
+        u.powerWatts = d.powerWatts;
+        u.fanSpeedPct = d.fanSpeedPercent;
+        u.coreClockMhz = d.graphicsClock;
+        u.memClockMhz = d.memClock;
+        u.available = true;
+        result.push_back(u);
+    }
+    
+    return result;
+}

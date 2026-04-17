@@ -1,74 +1,78 @@
-# HPC System Monitor v6.0
+# 🚀 HPC System Monitor v6.0
 
-A professional-grade desktop application for real-time hardware telemetry, **Gaming Session Analysis**, **HPC Intelligence Diagnostics**, and **AI Engineer Dashboards**. Built for competitive gamers, AI/ML developers, and hardware enthusiasts who demand deep visibility and actionable insights.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://github.com/OxyOxygen/system_monitor)
+[![Release](https://img.shields.io/badge/Release-v2.0-green.svg)](https://github.com/OxyOxygen/system_monitor/releases)
 
-## 🚀 NEW: Gaming Analysis 2.0
-Transform your monitoring into a professional benchmarking tool. The new **Ultra Gaming Performance Hub** provides:
+**A professional-grade hardware telemetry suite for Competitive Gaming, AI Engineering, and HPC Diagnostics.**
 
-- **Session Telemetry**: Track Average/Min/Max FPS, GPU Power consumption, and Network Latency (Ping) throughout your entire play session.
-- **Visual Timelines**: High-resolution line charts for FPS Stability, Latency Trends, and CPU/GPU load pressure.
-- **Dynamic Alerts**: Visual status cards that turn **Red/Yellow** based on thermal stress, latency spikes, or FPS drops.
-- **Automated Reporting**: One-click generation of a detailed `.txt` performance report featuring AI diagnostics and hardware recommendations.
+---
 
-## 🧠 NEW: HPC Engine Intelligence
-The integrated **Analytical Engine** monitors your hardware heuristics in real-time:
+## 📸 Preview
+![Project Hero Mockup](https://raw.githubusercontent.com/OxyOxygen/system_monitor/main/assets/preview.png)
+*(Note: Replace with actual screenshot of the application running)*
 
-- **Bottleneck Detection**: Identifies if your system is CPU, GPU, or Network bound during heavy workloads.
-- **AI Diagnostics**: Provides actionable insights for graphics settings, driver optimizations, and thermal management.
-- **Thermal Heuristics**: Analyzes temperature trends to detect potential throttling before it impacts performance.
+---
 
-## ⚡ Key Feature: AI Engineer Dashboard
-A dedicated environment for AI engineers and ML practitioners:
+## 🎯 Why HPC System Monitor?
+Most monitors show you "what" is happening. We show you **how it affects your performance**.
 
-- **AI Process Detection** — Automatically identifies processes like PyTorch, TensorFlow, Ollama, Stable Diffusion, and 30+ more.
-- **VRAM Management** — Real-time VRAM allocation tracking with thermal and power breakdown.
-- **Model Compatibility** — Estimator for 22+ popular AI models (Llama 3, SDXL, Flux, etc.) based on your hardware capacity.
+### 🕹️ Gaming Performance Hub
+*Professional benchmarking for competitive players.*
+- **Session Analysis**: Track FPS (Avg/Min/Max), 1% Lows, and GPU Power usage.
+- **Latency Tracker**: Real-time Network Ping and stability graphs.
+- **Visual Timelines**: High-res charts for thermal stress and FPS stability.
+- **Performance Reports**: Auto-generated `.txt` debriefs with AI-driven optimization tips.
 
-## ✨ Features Breakdown
+### 🧠 AI Engineer Dashboard
+*Precision monitoring for ML practitioners.*
+- **Process Intelligence**: Auto-detection of PyTorch, TensorFlow, Ollama, and 30+ AI tools.
+- **VRAM Breakdown**: Real-time memory allocation per model and process.
+- **Hardware Estimator**: See if your system can run Llama 3, SDXL, or Flux before loading them.
 
-### 📊 Gaming Session Tab
-- **Engage Analytics**: Start/Stop session tracking with a single click.
-- **Analytical Debrief**: Detailed summary of session performance after completion.
-- **History Sub-sampling**: Optimized data handling for multi-hour gaming sessions.
+### 🌡️ HPC Engine Diagnostics
+*Deep hardware heuristics.*
+- **Bottleneck Detection**: Real-time identification of CPU/GPU/Network bounds.
+- **Thermal Heuristics**: Predict thermal throttling before it hits.
+- **Electricity Costing**: Live projection of power costs based on usage.
 
-### 🌡️ Thermal & Power Monitoring
-- **Live Wattage**: Component-level breakdown (CPU/GPU/System).
-- **Session Cost**: Real-time electricity cost tracking with projections.
-- **Smart Thermals**: Temperature monitoring with throttling alerts.
+---
 
-### 🌐 Network & Latency
-- **Real-time Ping**: Dedicated latency tracker for online gaming.
-- **Traffic Analysis**: Live download/upload speeds and connection counts.
+## ⚡ Quick Start
 
-## 💻 Technical Stack
-- **Standard**: C++17
-- **Graphics**: OpenGL 3.0 / GLFW
-- **UI**: Dear ImGui (Customized Dark Theme)
-- **APIs**: NVML (NVIDIA), DXGI, Windows PDH, IP Helper, Direct3D 11
+### 📦 Option A: Download & Run (Recommended)
+1. Go to the [Releases](https://github.com/OxyOxygen/system_monitor/releases) section.
+2. Download the latest `SystemMonitor_Windows.zip`.
+3. Extract and run `SystemMonitor.exe`.
 
-## 🛠️ Installation and Build
-
-### Prerequisites
-- Windows 10/11
-- CMake 3.15+
-- Visual Studio 2019/2022 (C++ Workload)
-
-### Quick Start
+### ⚒️ Option B: Build from Source
+**Prerequisites**: Windows 10/11, CMake 3.15+, Visual Studio 2019+.
 ```powershell
 cmake -B build
 cmake --build build --config Release
 ./build/Release/SystemMonitor.exe
 ```
 
-## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+---
+
+## 🛠️ Technical Stack
+- **Core**: C++17
+- **UI**: Dear ImGui (Custom Dark Theme)
+- **Graphics**: OpenGL 3.0 / GLFW
+- **APIs**: NVML (NVIDIA), DXGI, Windows PDH, IP Helper, Direct3D 11
 
 ---
-*Generated by HPC Monitor AI Engine - Optimized for Performance.*
 
+## 🗺️ Roadmap & Contributing
+We welcome contributions! See the `Issues` tab for "Good First Issues".
+- [ ] Linux Support (Native `/proc` integration)
+- [ ] AMD GPU (ADL/ROCm) Integration
+- [ ] Localization (TR/EN)
 
-### Energy estimates seem wrong
-Energy values are **estimates** based on TDP and utilization percentage. Actual power varies by workload type, voltage, and thermals. The TDP lookup table covers 40+ popular GPUs and CPUs.
+---
 
-## License
-MIT License
+## 📄 License
+Licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+---
+*Created for gamers and engineers who demand total control.*

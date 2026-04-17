@@ -135,6 +135,8 @@ private:
 
   // Utilities
   void saveReportToTxt(const HpcReport &report, const SessionMetrics &metrics);
+  void saveReportToJson(const HpcReport &report, const SessionMetrics &metrics);
+  void saveReportToCsv(const HpcReport &report, const SessionMetrics &metrics);
   void updateHistory(float cpuVal, float memVal, float gpuVal, float dlVal,
                      float ulVal, float wattsVal, float diskReadVal,
                      float diskWriteVal);
